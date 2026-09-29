@@ -1,0 +1,7 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+# the Vosk model is fetched by scripts/fetch-model.sh (68 MB, not in git)
+app/src/main/assets/model-en-us/
