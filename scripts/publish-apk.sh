@@ -58,7 +58,12 @@ echo "built $(du -h build/recorder.apk | cut -f1) sha256 $SHA"
 
 # the APK first, then the manifest, so the manifest never names an APK that isn't there yet
 for f in recorder.apk recorder.json; do
-  curl -fsS -X POST "$RECORDER_PUBLISH_URL" -F "files=@build/$f" >/dev/null
+  # sharefiles.eu answers 502/504 under load; the upload itself is idempotent, so retry
+  for try in 1 2 3 4 5; do
+    curl -fsS --max-time 300 -X POST "$RECORDER_PUBLISH_URL" -F "files=@build/$f" >/dev/null && break
+    (( try == 5 )) && { echo "upload of $f failed" >&2; exit 1; }
+    echo "   retrying $f in 20s"; sleep 20
+  done
   echo "-> uploaded $f"
 done
 curl -fsS "$RECORDER_PUBLISH_URL?format=json" | SHA=$SHA python3 -c '
