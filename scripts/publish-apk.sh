@@ -56,11 +56,21 @@ printf '{"version":"%s","versionCode":%s,"sha256":"%s","commit":"%s","builtAt":"
 echo "built $(du -h build/recorder.apk | cut -f1) sha256 $SHA"
 (( upload )) || { echo "not uploaded: build/recorder.apk"; exit 0; }
 
+served_sha() {  # sha256 the share currently serves for $1 ("" if none/unreachable)
+  curl -fsS --max-time 60 "$RECORDER_PUBLISH_URL?format=json" 2>/dev/null | NAME=$1 python3 -c '
+import sys, json, os
+f = next((f for f in json.load(sys.stdin)["files"] if f["name"] == os.environ["NAME"]), {})
+print(f.get("sha256", ""))' 2>/dev/null || true
+}
+
 # the APK first, then the manifest, so the manifest never names an APK that isn't there yet
 for f in recorder.apk recorder.json; do
-  # sharefiles.eu answers 502/504 under load; the upload itself is idempotent, so retry
+  want=$(sha256sum "build/$f" | cut -d' ' -f1)
+  # sharefiles.eu answers 502/504 under load, often AFTER it stored the file, so check
+  # what the share serves before sending 47 MB again
   for try in 1 2 3 4 5; do
     curl -fsS --max-time 300 -X POST "$RECORDER_PUBLISH_URL" -F "files=@build/$f" >/dev/null && break
+    sleep 10; [[ "$(served_sha $f)" == "$want" ]] && { echo "   $f landed despite the error"; break; }
     (( try == 5 )) && { echo "upload of $f failed" >&2; exit 1; }
     echo "   retrying $f in 20s"; sleep 20
   done
