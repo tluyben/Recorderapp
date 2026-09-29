@@ -175,7 +175,8 @@ class ListenService : Service() {
                             // don't let the answer being read out trigger anything
                             spotter.reset(); set { it.copy(mode = Mode.SPEAKING) }
                         } else if (app.settings.value.listening) {
-                            when (Commands.whileIdle(heard.text)) {
+                            val byGrammar = Commands.fromGrammar(spotter.feedCommands(buf, n))
+                            when (Commands.whileIdle(heard.text) ?: byGrammar) {
                                 Command.TAKE_NOTE -> start(NoteKind.NOTE)
                                 Command.QUESTION -> start(NoteKind.QUESTION)
                                 else -> {}

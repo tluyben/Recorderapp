@@ -9,8 +9,9 @@ and records notes, or asks an AI a question and reads the answer aloud.
 | **“Question”** … **“Stop stop”** | Recording → OpenRouter STT → OpenRouter chat model → answer read aloud with Android TTS, and stored under Questions |
 | **“Stop stop”** while it speaks | Stops the answer |
 
-"Question" only triggers at the start of an utterance (after a short pause), or as
-"ask a question". That way it doesn't fire whenever someone uses the word in conversation.
+Commands are spotted by two offline decoders: the open-vocabulary one, and a command-only
+one (Vosk grammar) that snaps accented or mumbled "take note" / "question" onto the phrase
+when it is said on its own. "Question" only triggers at the start of an utterance, or alone.
 
 ## How it works
 - **Wake words: [Vosk](https://alphacephei.com/vosk/)** (Kaldi, `vosk-model-small-en-us-0.15`),

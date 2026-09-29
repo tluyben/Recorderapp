@@ -114,8 +114,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        // first run: ask for the microphone + notifications straight away
-        if (!hasMic()) requestPerms {}
+        // first run: ask for the microphone + notifications straight away, then start listening
+        if (!hasMic()) requestPerms {
+            if (app.settings.value.listening) ListenService.send(this, ListenService.ACTION_LISTEN)
+        }
     }
 
     override fun onResume() {

@@ -15,13 +15,17 @@ data class Prefs(
     /** Keep the WAV next to the note after a successful transcription. */
     val keepAudio: Boolean = true,
     /** The user wants always-on listening; the service restarts it when the app opens. */
-    val listening: Boolean = false,
+    val listening: Boolean = true,
     val maxNoteMinutes: Int = 30,
     val systemPrompt: String = Settings.DEFAULT_SYSTEM,
 )
 
 class Settings(context: Context) {
     private val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    init {
+        // 1.0.0 shipped with listening off by default; always-on is the point of the app
+        if (!sp.getBoolean("listenDefaultOn", false)) sp.edit().putBoolean("listening", true).putBoolean("listenDefaultOn", true).apply()
+    }
     private val _prefs = MutableStateFlow(read())
     val prefs: StateFlow<Prefs> = _prefs.asStateFlow()
     val value: Prefs get() = _prefs.value
@@ -33,7 +37,7 @@ class Settings(context: Context) {
         language = sp.getString("language", "") ?: "",
         speakAnswers = sp.getBoolean("speakAnswers", true),
         keepAudio = sp.getBoolean("keepAudio", true),
-        listening = sp.getBoolean("listening", false),
+        listening = sp.getBoolean("listening", true),
         maxNoteMinutes = sp.getInt("maxNoteMinutes", 30),
         systemPrompt = sp.getString("systemPrompt", DEFAULT_SYSTEM) ?: DEFAULT_SYSTEM,
     )

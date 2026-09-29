@@ -19,6 +19,25 @@ class CommandsTest {
         assertNull(Commands.whileIdle(""))
     }
 
+    @Test fun accentVariants() {
+        assertEquals(Command.TAKE_NOTE, Commands.whileIdle("take no"+"t"))
+        assertEquals(Command.TAKE_NOTE, Commands.whileIdle("tape note"))
+        assertEquals(Command.QUESTION, Commands.whileIdle("questions what time"))
+        assertNull(Commands.whileIdle("good question"))
+        assertNull(Commands.whileIdle("i was thinking about that question"))
+    }
+
+    @Test fun grammarUtterances() {
+        assertEquals(Command.TAKE_NOTE, Commands.fromGrammar("take note"))
+        assertEquals(Command.TAKE_NOTE, Commands.fromGrammar("[unk] take a note"))
+        assertEquals(Command.QUESTION, Commands.fromGrammar("question"))
+        assertNull(Commands.fromGrammar("[unk] [unk] question"))
+        assertNull(Commands.fromGrammar("[unk] question"))
+        assertNull(Commands.fromGrammar("[unk] take note [unk] [unk]"))
+        assertNull(Commands.fromGrammar(""))
+        assertNull(Commands.fromGrammar(null))
+    }
+
     @Test fun stopNeedsTwo() {
         assertEquals(Command.STOP, Commands.whileRecording("and that is it stop stop"))
         assertEquals(Command.STOP, Commands.whileRecording("stop stopped"))

@@ -14,6 +14,9 @@ import java.io.File
  */
 class Spotter private constructor(private val model: Model, private val sampleRate: Float) {
     private var rec = Recognizer(model, sampleRate)
+    // a second decoder that only knows the command phrases: it snaps an accented or
+    // mumbled "take note" onto the phrase, where the open-vocabulary one may hear "take no"
+    private var cmd = Recognizer(model, sampleRate, Commands.GRAMMAR)
 
     data class Heard(val text: String, val final: Boolean)
 
@@ -22,10 +25,14 @@ class Spotter private constructor(private val model: Model, private val sampleRa
         else Heard(JSONObject(rec.partialResult).optString("partial"), false)
     }
 
-    /** Forget the current utterance, so text that already fired a command can't fire again. */
-    fun reset() = rec.reset()
+    /** Feeds the command-only decoder; returns its text when an utterance ends, else null. */
+    fun feedCommands(buf: ByteArray, len: Int): String? =
+        if (cmd.acceptWaveForm(buf, len)) JSONObject(cmd.result).optString("text") else null
 
-    fun close() { rec.close(); model.close() }
+    /** Forget the current utterance, so text that already fired a command can't fire again. */
+    fun reset() { rec.reset(); cmd.reset() }
+
+    fun close() { rec.close(); cmd.close(); model.close() }
 
     companion object {
         private const val ASSET = "model-en-us"
