@@ -7,6 +7,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.BrightnessAuto
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
@@ -26,14 +29,17 @@ class SettingsActions(
     val onSave: (Prefs) -> Unit = {},
     val onTestKey: (String) -> Unit = {},
     val onBattery: () -> Unit = {},
+    /** Applied at once, without Save. */
+    val onTheme: (ThemeMode) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, version: String, a: SettingsActions) {
-    var p by remember(prefs) { mutableStateOf(prefs) }
+    // edits stay local until Save; the theme and the listening switch apply at once elsewhere
+    var p by remember { mutableStateOf(prefs) }
     var showKey by remember { mutableStateOf(false) }
-    val dirty = p != prefs
+    val dirty = p.copy(listening = prefs.listening, theme = prefs.theme) != prefs
     Scaffold(
         topBar = {
             TopAppBar(
@@ -46,6 +52,22 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Section("Appearance")
+            val mode = ThemeMode.entries.firstOrNull { it.name.equals(prefs.theme, true) } ?: ThemeMode.SYSTEM
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                ThemeMode.entries.forEachIndexed { i, m ->
+                    SegmentedButton(
+                        selected = m == mode, onClick = { a.onTheme(m) },
+                        shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
+                        icon = { SegmentedButtonDefaults.Icon(m == mode) { Icon(when (m) {
+                            ThemeMode.SYSTEM -> Icons.Outlined.BrightnessAuto
+                            ThemeMode.LIGHT -> Icons.Outlined.LightMode
+                            ThemeMode.DARK -> Icons.Outlined.DarkMode
+                        }, null, Modifier.size(SegmentedButtonDefaults.IconSize)) } },
+                    ) { Text(m.label) }
+                }
+            }
+
             Section("OpenRouter")
             OutlinedTextField(
                 value = p.apiKey, onValueChange = { p = p.copy(apiKey = it) },
@@ -60,7 +82,7 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
                 OutlinedButton(onClick = { a.onTestKey(p.apiKey) }, enabled = p.apiKey.isNotBlank()) { Text("Test key") }
                 Spacer(Modifier.width(12.dp))
                 Text(keyCheck, style = MaterialTheme.typography.bodySmall,
-                    color = if (keyCheck.startsWith("Key OK")) Listening else Accent)
+                    color = if (keyCheck.startsWith("Key OK")) Tones.listening else MaterialTheme.colorScheme.primary)
             }
             Text("Get a key at openrouter.ai/keys. It is stored only on this phone.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

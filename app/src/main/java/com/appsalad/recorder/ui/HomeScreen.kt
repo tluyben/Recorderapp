@@ -110,18 +110,18 @@ fun HomeScreen(
 @Composable
 private fun KeyBanner(onSettings: () -> Unit) {
     Surface(
-        color = Color(0xFF3A2A12), shape = RoundedCornerShape(14.dp),
+        color = Tones.bannerBg, shape = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onSettings),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Key, null, tint = Color(0xFFFFB84D))
+            Icon(Icons.Outlined.Key, null, tint = Tones.warn)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Add your OpenRouter key", fontWeight = FontWeight.SemiBold, color = Color(0xFFFFD699))
+                Text("Add your OpenRouter key", fontWeight = FontWeight.SemiBold, color = Tones.bannerTitle)
                 Text("Needed to transcribe notes and answer questions. Recording works without it.",
-                    style = MaterialTheme.typography.bodySmall, color = Color(0xFFE8CFA6))
+                    style = MaterialTheme.typography.bodySmall, color = Tones.bannerText)
             }
-            Icon(Icons.Outlined.ChevronRight, null, tint = Color(0xFFFFD699))
+            Icon(Icons.Outlined.ChevronRight, null, tint = Tones.bannerTitle)
         }
     }
 }
@@ -130,8 +130,8 @@ private fun KeyBanner(onSettings: () -> Unit) {
 private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a: HomeActions, now: () -> Long) {
     val recording = s.mode == Mode.NOTE || s.mode == Mode.QUESTION
     val tint = when {
-        recording -> if (s.mode == Mode.NOTE) Accent else AskBlue
-        s.running && listening -> Listening
+        recording -> if (s.mode == Mode.NOTE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+        s.running && listening -> Tones.listening
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(20.dp)) {
@@ -189,7 +189,7 @@ private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a:
                         Icon(Icons.Outlined.Mic, null); Spacer(Modifier.width(8.dp)); Text("Note")
                     }
                     Button(onClick = a.onAsk, modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AskBlue)) {
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) {
                         Icon(Icons.Outlined.QuestionAnswer, null); Spacer(Modifier.width(8.dp)); Text("Ask AI")
                     }
                 }
@@ -268,7 +268,7 @@ fun NoteRow(n: Note, onClick: () -> Unit) {
 fun StatusChip(s: NoteStatus) {
     val (label, color) = when (s) {
         NoteStatus.RECORDING -> "recording" to Accent
-        NoteStatus.TRANSCRIBING -> "transcribing" to Color(0xFFFFB84D)
+        NoteStatus.TRANSCRIBING -> "transcribing" to Tones.warn
         NoteStatus.ANSWERING -> "thinking" to AskBlue
         NoteStatus.FAILED -> "failed" to Accent
         NoteStatus.READY -> return

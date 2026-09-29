@@ -18,6 +18,8 @@ data class Prefs(
     val listening: Boolean = true,
     val maxNoteMinutes: Int = 30,
     val systemPrompt: String = Settings.DEFAULT_SYSTEM,
+    /** "system", "light" or "dark". */
+    val theme: String = "system",
 )
 
 class Settings(context: Context) {
@@ -40,6 +42,7 @@ class Settings(context: Context) {
         listening = sp.getBoolean("listening", true),
         maxNoteMinutes = sp.getInt("maxNoteMinutes", 30),
         systemPrompt = sp.getString("systemPrompt", DEFAULT_SYSTEM) ?: DEFAULT_SYSTEM,
+        theme = sp.getString("theme", "system") ?: "system",
     )
 
     fun update(change: (Prefs) -> Prefs) {
@@ -54,6 +57,7 @@ class Settings(context: Context) {
             .putBoolean("listening", p.listening)
             .putInt("maxNoteMinutes", p.maxNoteMinutes.coerceIn(1, 180))
             .putString("systemPrompt", p.systemPrompt)
+            .putString("theme", p.theme)
             .apply()
         _prefs.value = read()
     }

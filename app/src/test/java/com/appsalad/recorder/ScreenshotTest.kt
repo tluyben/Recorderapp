@@ -37,10 +37,10 @@ abstract class ScreenshotBase {
         Note("6", NoteKind.QUESTION, now - 7_200_000, text = "What's the capital of Peru?", answer = "Lima is the capital of Peru.", durationMs = 3_000),
     )
 
-    protected fun shot(name: String, content: @Composable () -> Unit) {
+    protected fun shot(name: String, dark: Boolean = true, content: @Composable () -> Unit) {
         // the pulse and timer animate forever; drive the clock by hand so the rule goes idle
         rule.mainClock.autoAdvance = false
-        rule.setContent { RecorderTheme { content() } }
+        rule.setContent { RecorderTheme(darkTheme = dark) { content() } }
         rule.mainClock.advanceTimeBy(600)
         rule.onRoot().captureRoboImage("build/shots/$name.png")
     }
@@ -69,8 +69,22 @@ class MobileShots : ScreenshotBase() {
     @Test fun questionDetail() = shot("question-detail-$suffix") { NoteScreen(notes[4].copy(audioPath = "/q.wav"), false, NoteActions()) }
     @Test fun failedDetail() = shot("note-failed-$suffix") { NoteScreen(notes[3], false, NoteActions()) }
     @Test fun settings() = shot("settings-$suffix") {
-        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", listening = true), "Key OK (recorder) · used $0.42",
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", listening = true, theme = "dark"), "Key OK (recorder) · used $0.42",
             batteryExempt = false, version = "1.0.0", a = SettingsActions())
+    }
+
+    @Test fun homeLight() = shot("light-home-listening-$suffix", dark = false) {
+        HomeScreen(ListenState(running = true, heard = "so what time is the meeting"), listening = true, hasKey = false,
+            speaking = false, notes = notes, tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now })
+    }
+    @Test fun recordingLight() = shot("light-home-recording-question-$suffix", dark = false) {
+        HomeScreen(ListenState(running = true, mode = Mode.QUESTION, recordingSince = now - 7_000), listening = true, hasKey = true,
+            speaking = false, notes = notes, tab = Tab.QUESTIONS, onTab = {}, actions = HomeActions(), now = { now })
+    }
+    @Test fun questionLight() = shot("light-question-detail-$suffix", dark = false) { NoteScreen(notes[4].copy(audioPath = "/q.wav"), false, NoteActions()) }
+    @Test fun settingsLight() = shot("light-settings-$suffix", dark = false) {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "light"), "Key OK (recorder) · used $0.42",
+            batteryExempt = false, version = "1.0.2", a = SettingsActions())
     }
 }
 
@@ -87,5 +101,20 @@ class DesktopShots : ScreenshotBase() {
     @Test fun questionDetail() = shot("question-detail-desktop") { NoteScreen(notes[4].copy(audioPath = "/q.wav"), false, NoteActions()) }
     @Test fun settings() = shot("settings-desktop") {
         SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef"), "", batteryExempt = true, version = "1.0.0", a = SettingsActions())
+    }
+    @Test fun homeLight() = shot("light-home-listening-desktop", dark = false) {
+        HomeScreen(ListenState(running = true, heard = "so what time is the meeting"), listening = true, hasKey = true,
+            speaking = false, notes = notes, tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now })
+    }
+    @Test fun recordingLight() = shot("light-home-recording-question-desktop", dark = false) {
+        HomeScreen(ListenState(running = true, mode = Mode.QUESTION, recordingSince = now - 7_000), listening = true, hasKey = true,
+            speaking = false, notes = notes, tab = Tab.QUESTIONS, onTab = {}, actions = HomeActions(), now = { now })
+    }
+    @Test fun questionLight() = shot("light-question-detail-desktop", dark = false) { NoteScreen(notes[4].copy(audioPath = "/q.wav"), false, NoteActions()) }
+    @Test fun settingsLight() = shot("light-settings-desktop", dark = false) {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "light"), "", batteryExempt = true, version = "1.0.2", a = SettingsActions())
+    }
+    @Test fun settingsDarkTheme() = shot("settings-theme-dark-desktop") {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark"), "", batteryExempt = true, version = "1.0.2", a = SettingsActions())
     }
 }

@@ -14,7 +14,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import android.graphics.Color
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,7 +56,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            RecorderTheme {
+            val prefsForTheme by app.settings.prefs.collectAsStateWithLifecycle()
+            val dark = (ThemeMode.entries.firstOrNull { it.name.equals(prefsForTheme.theme, true) } ?: ThemeMode.SYSTEM).isDark()
+            LaunchedEffect(dark) {
+                // status/navigation bar icons follow the app theme, not only the system one
+                val bars = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(bars, bars)
+            }
+            RecorderTheme(darkTheme = dark) {
                 var screen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Home) }
                 var tab by rememberSaveable { mutableStateOf(Tab.NOTES) }
                 var keyCheck by remember { mutableStateOf("") }
@@ -95,7 +104,7 @@ class MainActivity : ComponentActivity() {
                         a = SettingsActions(
                             onBack = { screen = Screen.Home },
                             onSave = { p ->
-                                app.settings.update { p }
+                                app.settings.update { cur -> p.copy(listening = cur.listening, theme = cur.theme) }
                                 Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
                                 // retry anything that failed for lack of a key
                                 if (p.apiKey.isNotBlank()) app.repo.notes.value
@@ -109,6 +118,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onBattery = { requestBatteryExemption() },
+                            onTheme = { m -> app.settings.update { it.copy(theme = m.name.lowercase()) } },
                         ),
                     )
                 }

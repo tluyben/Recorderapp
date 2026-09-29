@@ -100,7 +100,7 @@ fun NoteScreen(n: Note, playing: Boolean, a: NoteActions) {
             if (n.kind == NoteKind.QUESTION) {
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Answer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = AskBlue)
+                    Text("Answer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.secondary)
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = a.onAskAgain, enabled = !busy && n.text.isNotBlank()) {
                         Icon(Icons.Outlined.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Ask again")
