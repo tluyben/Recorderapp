@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.appsalad.recorder.audio.Chime
 import com.appsalad.recorder.data.Note
 import com.appsalad.recorder.data.NoteStatus
 import com.appsalad.recorder.net.OpenRouter
@@ -83,6 +84,7 @@ class MainActivity : ComponentActivity() {
                     Screen.Home -> HomeScreen(
                         state = listen, listening = prefs.listening, hasKey = prefs.apiKey.isNotBlank(),
                         speaking = speaking, notes = notes, tab = tab, onTab = { tab = it },
+                        maxRecordMinutes = prefs.maxRecordMinutes,
                         actions = HomeActions(
                             onToggleListen = { on -> setListening(on) },
                             onRecordNote = { withMic { ListenService.send(this, ListenService.ACTION_NOTE) } },
@@ -96,7 +98,7 @@ class MainActivity : ComponentActivity() {
                     is Screen.Detail -> {
                         val n = notes.firstOrNull { it.id == s.id }
                         if (n == null) { LaunchedEffect(Unit) { screen = Screen.Home } }
-                        else NoteScreen(n, playingId == n.id, noteActions(n) { screen = Screen.Home })
+                        else NoteScreen(n, playingId == n.id, noteActions(n) { screen = Screen.Home }, speaking = speaking)
                     }
                     Screen.Prefs -> SettingsScreen(
                         prefs = prefs, keyCheck = keyCheck, batteryExempt = batteryExempt,
@@ -118,6 +120,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onBattery = { requestBatteryExemption() },
+                            onTestSound = {
+                                lifecycleScope.launch { Chime.play(true); kotlinx.coroutines.delay(900); Chime.play(false) }
+                            },
                             onTheme = { m -> app.settings.update { it.copy(theme = m.name.lowercase()) } },
                         ),
                     )

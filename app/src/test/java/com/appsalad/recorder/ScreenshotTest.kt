@@ -86,6 +86,23 @@ class MobileShots : ScreenshotBase() {
         SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "light"), "Key OK (recorder) · used $0.42",
             batteryExempt = false, version = "1.0.2", a = SettingsActions())
     }
+
+    @Test fun stopReading() = shot("home-stop-reading-$suffix") {
+        HomeScreen(ListenState(running = true, mode = Mode.SPEAKING), listening = true, hasKey = true, speaking = true,
+            notes = notes, tab = Tab.QUESTIONS, onTab = {}, actions = HomeActions(), now = { now })
+    }
+    @Test fun questionStopReading() = shot("question-stop-reading-$suffix") {
+        NoteScreen(notes[4].copy(audioPath = "/q.wav"), false, NoteActions(), speaking = true)
+    }
+    @Config(qualifiers = "w390dp-h1900dp-xxhdpi")
+    @Test fun settingsRecording() = shot("settings-recording-$suffix") {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark"), "", batteryExempt = false, version = "1.0.3", a = SettingsActions())
+    }
+    @Config(qualifiers = "w390dp-h1900dp-xxhdpi")
+    @Test fun settingsRecordingLight() = shot("light-settings-recording-$suffix", dark = false) {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "light", maxRecordMinutes = 5, sounds = false), "",
+            batteryExempt = true, version = "1.0.3", a = SettingsActions())
+    }
 }
 
 @Config(qualifiers = "w1280dp-h800dp-mdpi")
@@ -116,5 +133,16 @@ class DesktopShots : ScreenshotBase() {
     }
     @Test fun settingsDarkTheme() = shot("settings-theme-dark-desktop") {
         SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark"), "", batteryExempt = true, version = "1.0.2", a = SettingsActions())
+    }
+    @Test fun stopReading() = shot("home-stop-reading-desktop") {
+        HomeScreen(ListenState(running = true, mode = Mode.SPEAKING), listening = true, hasKey = true, speaking = true,
+            notes = notes, tab = Tab.QUESTIONS, onTab = {}, actions = HomeActions(), now = { now })
+    }
+    @Test fun questionStopReading() = shot("question-stop-reading-desktop") {
+        NoteScreen(notes[4].copy(audioPath = "/q.wav"), false, NoteActions(), speaking = true)
+    }
+    @Config(qualifiers = "w1280dp-h1400dp-mdpi")
+    @Test fun settingsRecording() = shot("settings-recording-desktop") {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark"), "", batteryExempt = false, version = "1.0.3", a = SettingsActions())
     }
 }

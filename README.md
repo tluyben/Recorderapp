@@ -7,7 +7,7 @@ and records notes, or asks an AI a question and reads the answer aloud.
 | --- | --- |
 | **“Take note”** … **“Stop stop”** | Native recording (16 kHz WAV) → OpenRouter speech-to-text → saved as a Note (edit / share / archive / delete, replay or share the audio) |
 | **“Question”** … **“Stop stop”** | Recording → OpenRouter STT → OpenRouter chat model → answer read aloud with Android TTS, and stored under Questions |
-| **“Stop stop”** while it speaks | Stops the answer |
+| **“Stop stop”** while it speaks | Stops the answer (or tap **Stop reading** — on the home card, the question screen and the notification) |
 
 Commands are spotted by two offline decoders: the open-vocabulary one, and a command-only
 one (Vosk grammar) that snaps accented or mumbled "take note" / "question" onto the phrase
@@ -38,3 +38,11 @@ when it is said on its own. "Question" only triggers at the start of an utteranc
     ./gradlew :app:testDebugUnitTest                 # unit tests + screenshots → app/build/shots/
 
 Download: https://sharefiles.eu/direct/ANmFHssycH3ZHJDt0YXqgm9zSIfVoDdg/recorder.apk
+
+## Recording settings
+- **Max recording time**, default 1 minute. It applies to both notes and questions. When
+  the time runs out, the recording stops and is transcribed automatically.
+- **Sounds**: a rising chime when a recording starts and a falling one when it stops. They
+  play as media, so they follow the media volume.
+- **Vibrate**: a buzz on start and stop, for noisy places. It can be on together with the
+  sounds.

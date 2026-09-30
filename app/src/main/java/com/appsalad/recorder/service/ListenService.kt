@@ -9,10 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -25,6 +23,7 @@ import androidx.core.content.ContextCompat
 import com.appsalad.recorder.MainActivity
 import com.appsalad.recorder.R
 import com.appsalad.recorder.RecorderApp
+import com.appsalad.recorder.audio.Chime
 import com.appsalad.recorder.audio.Command
 import com.appsalad.recorder.audio.Commands
 import com.appsalad.recorder.audio.Spotter
@@ -58,7 +57,6 @@ class ListenService : Service() {
     @Volatile private var pending: Command? = null
     @Volatile private var quit = false
     private var wakeLock: PowerManager.WakeLock? = null
-    private var tone: ToneGenerator? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -100,7 +98,6 @@ class ListenService : Service() {
     private fun loop() {
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "recorder:listen").apply { acquire() }
-        tone = runCatching { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80) }.getOrNull()
         set { it.copy(running = true, loading = true, error = "") }
         var spotter: Spotter? = null
         var record: AudioRecord? = null
@@ -187,7 +184,7 @@ class ListenService : Service() {
                     }
                     Mode.NOTE, Mode.QUESTION -> {
                         writer?.write(buf, n)
-                        val maxMs = if (kind == NoteKind.NOTE) app.settings.value.maxNoteMinutes * 60_000L else MAX_QUESTION_MS
+                        val maxMs = app.settings.value.maxRecordMinutes * 60_000L
                         if (Commands.whileRecording(heard.text) == Command.STOP || (writer?.durationMs ?: 0) >= maxMs) finish()
                     }
                     Mode.SPEAKING -> {
@@ -204,7 +201,6 @@ class ListenService : Service() {
         } finally {
             runCatching { record?.stop() }; record?.release()
             spotter?.close()
-            tone?.release(); tone = null
             wakeLock?.takeIf { it.isHeld }?.release()
             set { it.copy(running = false, loading = false, mode = Mode.IDLE, recordingSince = 0) }
             thread = null
@@ -213,8 +209,9 @@ class ListenService : Service() {
     }
 
     private fun cue(start: Boolean) {
-        runCatching { tone?.startTone(if (start) ToneGenerator.TONE_PROP_BEEP else ToneGenerator.TONE_PROP_ACK, 150) }
-        runCatching {
+        val p = app.settings.value
+        if (p.sounds) runCatching { Chime.play(starting = start) }
+        if (p.vibrate) runCatching {
             val v = getSystemService(Vibrator::class.java)
             v?.vibrate(if (start) VibrationEffect.createOneShot(60, 200)
                 else VibrationEffect.createWaveform(longArrayOf(0, 40, 80, 40), -1))
@@ -244,12 +241,12 @@ class ListenService : Service() {
         when (s.mode) {
             Mode.NOTE, Mode.QUESTION -> {
                 b.setContentTitle(if (s.mode == Mode.NOTE) "Recording a note" else "Listening to your question")
-                    .setContentText("Say “Stop stop” when you're done")
+                    .setContentText("Say “Stop stop” when you're done · stops by itself after ${app.settings.value.maxRecordMinutes} min")
                     .setUsesChronometer(true).setWhen(s.recordingSince)
                     .addAction(0, "Stop", pi(ACTION_STOP_RECORDING, 3))
             }
             Mode.SPEAKING -> b.setContentTitle("Reading the answer").setContentText("Say “Stop stop” to interrupt")
-                .addAction(0, "Silence", pi(ACTION_SILENCE, 4))
+                .addAction(0, "Stop reading", pi(ACTION_SILENCE, 4))
             Mode.IDLE -> {
                 b.setContentTitle(if (s.loading) "Starting…" else if (listening) "Listening for “Take note” or “Question”" else "Recorder")
                     .setContentText("Voice commands are recognised on the phone, offline")
@@ -299,7 +296,6 @@ class ListenService : Service() {
         private const val CHUNK = 3200 // 100 ms
         private const val PREROLL_MS = 700
         private const val MIN_MS = 800L
-        private const val MAX_QUESTION_MS = 3 * 60_000L
         private const val NOTIF_ID = 1
         private const val NOTIF_RESUME = 2
         const val ACTION_LISTEN = "listen"

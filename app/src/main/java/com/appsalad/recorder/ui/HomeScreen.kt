@@ -60,6 +60,7 @@ fun HomeScreen(
     onTab: (Tab) -> Unit,
     actions: HomeActions,
     now: () -> Long = System::currentTimeMillis,
+    maxRecordMinutes: Int = 1,
 ) {
     Scaffold(
         topBar = {
@@ -85,7 +86,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (!hasKey) item { KeyBanner(actions.onSettings) }
-            item { StatusCard(state, listening, speaking, actions, now) }
+            item { StatusCard(state, listening, speaking, actions, now, maxRecordMinutes) }
             item {
                 val counts = Tab.entries.associateWith { t ->
                     notes.count { when (t) {
@@ -127,7 +128,7 @@ private fun KeyBanner(onSettings: () -> Unit) {
 }
 
 @Composable
-private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a: HomeActions, now: () -> Long) {
+private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a: HomeActions, now: () -> Long, maxMin: Int) {
     val recording = s.mode == Mode.NOTE || s.mode == Mode.QUESTION
     val tint = when {
         recording -> if (s.mode == Mode.NOTE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
@@ -154,14 +155,18 @@ private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a:
                     Text(
                         when {
                             recording -> "Say “Stop stop” when you're done"
-                            s.mode == Mode.SPEAKING || speaking -> "Say “Stop stop” to interrupt"
+                            s.mode == Mode.SPEAKING || speaking -> "Tap Stop reading, or say “Stop stop”"
                             s.running && listening -> "Say “Take note” or “Question”"
                             else -> "Turn on to use voice commands"
                         },
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (recording) Elapsed(s.recordingSince, now)
+                if (recording) Column(horizontalAlignment = Alignment.End) {
+                    Elapsed(s.recordingSince, now)
+                    Text("of ${duration(maxMin * 60_000L)}", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 else Switch(checked = listening, onCheckedChange = a.onToggleListen)
             }
             if (s.error.isNotEmpty()) {
@@ -181,8 +186,10 @@ private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a:
                         Icon(Icons.Outlined.Stop, null); Spacer(Modifier.width(8.dp)); Text("Stop")
                     }
                 } else if (s.mode == Mode.SPEAKING || speaking) {
-                    OutlinedButton(onClick = a.onSilence, modifier = Modifier.weight(1f).height(48.dp)) {
-                        Icon(Icons.AutoMirrored.Outlined.VolumeOff, null); Spacer(Modifier.width(8.dp)); Text("Silence")
+                    Button(onClick = a.onSilence, modifier = Modifier.weight(1f).height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                        Icon(Icons.Outlined.Stop, null); Spacer(Modifier.width(8.dp))
+                        Text("Stop reading", fontWeight = FontWeight.SemiBold)
                     }
                 } else {
                     Button(onClick = a.onRecordNote, modifier = Modifier.weight(1f).height(48.dp)) {

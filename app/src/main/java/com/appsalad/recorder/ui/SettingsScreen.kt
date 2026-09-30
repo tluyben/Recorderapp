@@ -7,7 +7,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BrightnessAuto
+import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Visibility
@@ -20,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.appsalad.recorder.data.Prefs
 import com.appsalad.recorder.data.Settings
@@ -31,6 +35,7 @@ class SettingsActions(
     val onBattery: () -> Unit = {},
     /** Applied at once, without Save. */
     val onTheme: (ThemeMode) -> Unit = {},
+    val onTestSound: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,13 +107,26 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
             Section("Behaviour")
             Toggle("Read answers aloud", "Uses the phone's text-to-speech voice", p.speakAnswers) { p = p.copy(speakAnswers = it) }
             Toggle("Keep recordings", "Keep the audio with each note after it is transcribed", p.keepAudio) { p = p.copy(keepAudio = it) }
-            OutlinedTextField(
-                value = p.maxNoteMinutes.toString(),
-                onValueChange = { v -> v.filter(Char::isDigit).take(3).toIntOrNull()?.let { p = p.copy(maxNoteMinutes = it) } },
-                label = { Text("Longest note (minutes) — stops by itself after this") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-            )
+
+            Section("Recording")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Max recording time", style = MaterialTheme.typography.bodyLarge)
+                    Text("Notes and questions stop and are transcribed by themselves after this",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                FilledTonalIconButton(onClick = { p = p.copy(maxRecordMinutes = stepDown(p.maxRecordMinutes)) },
+                    enabled = p.maxRecordMinutes > 1) { Icon(Icons.Outlined.Remove, "Shorter") }
+                Text("${p.maxRecordMinutes} min", Modifier.widthIn(min = 64.dp), textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                FilledTonalIconButton(onClick = { p = p.copy(maxRecordMinutes = stepUp(p.maxRecordMinutes)) },
+                    enabled = p.maxRecordMinutes < 180) { Icon(Icons.Outlined.Add, "Longer") }
+            }
+            Toggle("Sounds", "A rising chime when recording starts, a falling one when it stops", p.sounds) { p = p.copy(sounds = it) }
+            Toggle("Vibrate", "Buzz on start and stop too — handy in noisy places", p.vibrate) { p = p.copy(vibrate = it) }
+            OutlinedButton(onClick = a.onTestSound) {
+                Icon(Icons.Outlined.MusicNote, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Play the chimes")
+            }
 
             Section("Always-on listening")
             Text("Voice commands are recognised on the phone with an offline Vosk model — no audio leaves the phone " +
@@ -156,3 +174,7 @@ private fun ModelField(label: String, value: String, suggestions: List<String>, 
         }
     }
 }
+
+/** 1–10 by one minute, then by five, then by fifteen (max 3 hours). */
+private fun stepUp(m: Int) = when { m < 10 -> m + 1; m < 60 -> m + 5; else -> minOf(180, m + 15) }
+private fun stepDown(m: Int) = when { m <= 10 -> maxOf(1, m - 1); m <= 60 -> m - 5; else -> m - 15 }

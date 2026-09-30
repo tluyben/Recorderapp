@@ -16,7 +16,12 @@ data class Prefs(
     val keepAudio: Boolean = true,
     /** The user wants always-on listening; the service restarts it when the app opens. */
     val listening: Boolean = true,
-    val maxNoteMinutes: Int = 30,
+    /** Every recording (note or question) stops and is transcribed after this long. */
+    val maxRecordMinutes: Int = 1,
+    /** Chime when a recording starts and stops. */
+    val sounds: Boolean = true,
+    /** Buzz when a recording starts and stops (for noisy places). */
+    val vibrate: Boolean = true,
     val systemPrompt: String = Settings.DEFAULT_SYSTEM,
     /** "system", "light" or "dark". */
     val theme: String = "system",
@@ -40,7 +45,9 @@ class Settings(context: Context) {
         speakAnswers = sp.getBoolean("speakAnswers", true),
         keepAudio = sp.getBoolean("keepAudio", true),
         listening = sp.getBoolean("listening", true),
-        maxNoteMinutes = sp.getInt("maxNoteMinutes", 30),
+        maxRecordMinutes = sp.getInt("maxRecordMinutes", 1),
+        sounds = sp.getBoolean("sounds", true),
+        vibrate = sp.getBoolean("vibrate", true),
         systemPrompt = sp.getString("systemPrompt", DEFAULT_SYSTEM) ?: DEFAULT_SYSTEM,
         theme = sp.getString("theme", "system") ?: "system",
     )
@@ -55,7 +62,9 @@ class Settings(context: Context) {
             .putBoolean("speakAnswers", p.speakAnswers)
             .putBoolean("keepAudio", p.keepAudio)
             .putBoolean("listening", p.listening)
-            .putInt("maxNoteMinutes", p.maxNoteMinutes.coerceIn(1, 180))
+            .putInt("maxRecordMinutes", p.maxRecordMinutes.coerceIn(1, 180))
+            .putBoolean("sounds", p.sounds)
+            .putBoolean("vibrate", p.vibrate)
             .putString("systemPrompt", p.systemPrompt)
             .putString("theme", p.theme)
             .apply()

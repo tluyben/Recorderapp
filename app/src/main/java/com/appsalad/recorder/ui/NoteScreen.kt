@@ -33,7 +33,7 @@ class NoteActions(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteScreen(n: Note, playing: Boolean, a: NoteActions) {
+fun NoteScreen(n: Note, playing: Boolean, a: NoteActions, speaking: Boolean = false) {
     var text by remember(n.id) { mutableStateOf(n.text) }
     // pick up a transcription that lands while the note is open, unless the user is editing
     var edited by remember(n.id) { mutableStateOf(false) }
@@ -105,7 +105,13 @@ fun NoteScreen(n: Note, playing: Boolean, a: NoteActions) {
                     TextButton(onClick = a.onAskAgain, enabled = !busy && n.text.isNotBlank()) {
                         Icon(Icons.Outlined.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Ask again")
                     }
-                    IconButton(onClick = a.onSpeak, enabled = n.answer.isNotBlank()) { Icon(Icons.AutoMirrored.Outlined.VolumeUp, "Read aloud") }
+                    if (!speaking) IconButton(onClick = a.onSpeak, enabled = n.answer.isNotBlank()) { Icon(Icons.AutoMirrored.Outlined.VolumeUp, "Read aloud") }
+                }
+                if (speaking) {
+                    Button(onClick = a.onSpeak, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        Icon(Icons.Outlined.Stop, null); Spacer(Modifier.width(8.dp)); Text("Stop reading", fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(10.dp))
                 }
                 Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(14.dp)) {
                     Text(n.answer.ifBlank { if (busy) "Thinking…" else "No answer yet" }, Modifier.fillMaxWidth().padding(14.dp),
