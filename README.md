@@ -39,6 +39,18 @@ when it is said on its own. "Question" only triggers at the start of an utteranc
 
 Download: https://sharefiles.eu/direct/ANmFHssycH3ZHJDt0YXqgm9zSIfVoDdg/recorder.apk
 
+## Voice commands
+You can change the three phrases in **Settings → Voice commands**. The defaults are
+"Take note", "Question" and "Stop stop".
+- **Two or more words work best.** A multi-word phrase counts anywhere in what is said.
+- **A single word needs a pause.** As a trigger, it only counts at the start of an
+  utterance. As the stop word, it has to be said on its own.
+- **Unknown words:** the app looks up every word in the offline model's vocabulary
+  (libvosk's `vosk_model_find_word`, called through JNA). If a word is missing, it warns
+  on the home card and in Settings.
+- **Mishearings:** the defaults also accept common mishearings. Custom phrases get the
+  command-only decoder, but not those extra variants.
+
 ## Recording settings
 - **Max recording time**, default 1 minute. It applies to both notes and questions. When
   the time runs out, the recording stops and is transcribed automatically.

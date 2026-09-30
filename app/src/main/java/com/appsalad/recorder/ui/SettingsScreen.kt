@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.appsalad.recorder.audio.CommandWords
 import com.appsalad.recorder.data.Prefs
 import com.appsalad.recorder.data.Settings
 
@@ -40,7 +41,7 @@ class SettingsActions(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, version: String, a: SettingsActions) {
+fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, version: String, a: SettingsActions, unknownWords: List<String> = emptyList()) {
     // edits stay local until Save; the theme and the listening switch apply at once elsewhere
     var p by remember { mutableStateOf(prefs) }
     var showKey by remember { mutableStateOf(false) }
@@ -50,7 +51,12 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = { IconButton(onClick = a.onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
-                actions = { if (dirty) TextButton(onClick = { a.onSave(p) }) { Text("Save") } },
+                actions = { if (dirty) TextButton(onClick = {
+                    val n = CommandWords.of(p.notePhrase, p.questionPhrase, p.stopPhrase)
+                    p = p.copy(notePhrase = n.note, questionPhrase = n.question, stopPhrase = n.stop)
+                    a.onSave(p)
+                },
+                    enabled = CommandWords.of(p.notePhrase, p.questionPhrase, p.stopPhrase).all.distinct().size == 3) { Text("Save") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -108,6 +114,27 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
             Toggle("Read answers aloud", "Uses the phone's text-to-speech voice", p.speakAnswers) { p = p.copy(speakAnswers = it) }
             Toggle("Keep recordings", "Keep the audio with each note after it is transcribed", p.keepAudio) { p = p.copy(keepAudio = it) }
 
+            Section("Voice commands")
+            Text("Say these to control Recorder. Two or more words work best: a single word only counts when " +
+                "you say it on its own, with a short pause before (and after, for the stop word).",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val cw = CommandWords.of(p.notePhrase, p.questionPhrase, p.stopPhrase)
+            PhraseField("Start a note", p.notePhrase, CommandWords.DEFAULT_NOTE) { p = p.copy(notePhrase = it) }
+            PhraseField("Ask the AI a question", p.questionPhrase, CommandWords.DEFAULT_QUESTION) { p = p.copy(questionPhrase = it) }
+            PhraseField("Stop recording / stop reading", p.stopPhrase, CommandWords.DEFAULT_STOP) { p = p.copy(stopPhrase = it) }
+            val clash = cw.all.distinct().size < 3
+            // the listener reports unknown words for the saved phrases only
+            val unknown = if (cw == prefs.commands) unknownWords else emptyList()
+            when {
+                clash -> Text("The three phrases must be different.", color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall)
+                unknown.isNotEmpty() -> Text("The offline listener doesn't know ${unknown.joinToString { "“$it”" }}, " +
+                    "so it can never hear it. Pick a more common word.", color = Tones.warn, style = MaterialTheme.typography.bodySmall)
+            }
+            if (cw != CommandWords()) TextButton(onClick = {
+                p = p.copy(notePhrase = CommandWords.DEFAULT_NOTE, questionPhrase = CommandWords.DEFAULT_QUESTION, stopPhrase = CommandWords.DEFAULT_STOP)
+            }) { Text("Reset to “Take note”, “Question”, “Stop stop”") }
+
             Section("Recording")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -130,7 +157,7 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
 
             Section("Always-on listening")
             Text("Voice commands are recognised on the phone with an offline Vosk model — no audio leaves the phone " +
-                "until you say “Take note” or “Question”. For listening with the screen off, let Recorder ignore battery optimisation.",
+                "until you say ${CommandWords.quote(prefs.notePhrase)} or ${CommandWords.quote(prefs.questionPhrase)}. For listening with the screen off, let Recorder ignore battery optimisation.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedButton(onClick = a.onBattery, enabled = !batteryExempt) {
                 Text(if (batteryExempt) "Battery optimisation is off ✓" else "Allow running in the background")
@@ -178,3 +205,13 @@ private fun ModelField(label: String, value: String, suggestions: List<String>, 
 /** 1–10 by one minute, then by five, then by fifteen (max 3 hours). */
 private fun stepUp(m: Int) = when { m < 10 -> m + 1; m < 60 -> m + 5; else -> minOf(180, m + 15) }
 private fun stepDown(m: Int) = when { m <= 10 -> maxOf(1, m - 1); m <= 60 -> m - 5; else -> m - 15 }
+
+@Composable
+private fun PhraseField(label: String, value: String, default: String, on: (String) -> Unit) {
+    OutlinedTextField(
+        value = value, onValueChange = { on(it.take(40)) }, label = { Text(label) }, singleLine = true,
+        placeholder = { Text(default) },
+        supportingText = if (CommandWords.normalize(value).isEmpty()) {{ Text("Empty uses the default, “$default”") }} else null,
+        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+    )
+}

@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
                         state = listen, listening = prefs.listening, hasKey = prefs.apiKey.isNotBlank(),
                         speaking = speaking, notes = notes, tab = tab, onTab = { tab = it },
                         maxRecordMinutes = prefs.maxRecordMinutes,
+                        words = prefs.commands,
                         actions = HomeActions(
                             onToggleListen = { on -> setListening(on) },
                             onRecordNote = { withMic { ListenService.send(this, ListenService.ACTION_NOTE) } },
@@ -101,7 +102,7 @@ class MainActivity : ComponentActivity() {
                         else NoteScreen(n, playingId == n.id, noteActions(n) { screen = Screen.Home }, speaking = speaking)
                     }
                     Screen.Prefs -> SettingsScreen(
-                        prefs = prefs, keyCheck = keyCheck, batteryExempt = batteryExempt,
+                        prefs = prefs, keyCheck = keyCheck, batteryExempt = batteryExempt, unknownWords = listen.unknownWords,
                         version = "${BuildConfigCompat.versionName(this)}",
                         a = SettingsActions(
                             onBack = { screen = Screen.Home },

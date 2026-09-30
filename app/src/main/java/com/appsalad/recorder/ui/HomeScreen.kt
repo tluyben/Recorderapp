@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.appsalad.recorder.audio.CommandWords
 import com.appsalad.recorder.data.Note
 import com.appsalad.recorder.data.NoteKind
 import com.appsalad.recorder.data.NoteStatus
@@ -61,6 +62,7 @@ fun HomeScreen(
     actions: HomeActions,
     now: () -> Long = System::currentTimeMillis,
     maxRecordMinutes: Int = 1,
+    words: CommandWords = CommandWords(),
 ) {
     Scaffold(
         topBar = {
@@ -86,7 +88,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (!hasKey) item { KeyBanner(actions.onSettings) }
-            item { StatusCard(state, listening, speaking, actions, now, maxRecordMinutes) }
+            item { StatusCard(state, listening, speaking, actions, now, maxRecordMinutes, words) }
             item {
                 val counts = Tab.entries.associateWith { t ->
                     notes.count { when (t) {
@@ -102,7 +104,7 @@ fun HomeScreen(
                     }
                 }
             }
-            if (shown.isEmpty()) item { EmptyState(tab) }
+            if (shown.isEmpty()) item { EmptyState(tab, words) }
             items(shown, key = { it.id }) { NoteRow(it) { actions.onOpen(it) } }
         }
     }
@@ -128,7 +130,8 @@ private fun KeyBanner(onSettings: () -> Unit) {
 }
 
 @Composable
-private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a: HomeActions, now: () -> Long, maxMin: Int) {
+private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a: HomeActions, now: () -> Long, maxMin: Int, w: CommandWords) {
+    val q = CommandWords::quote
     val recording = s.mode == Mode.NOTE || s.mode == Mode.QUESTION
     val tint = when {
         recording -> if (s.mode == Mode.NOTE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
@@ -154,9 +157,9 @@ private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a:
                     )
                     Text(
                         when {
-                            recording -> "Say “Stop stop” when you're done"
-                            s.mode == Mode.SPEAKING || speaking -> "Tap Stop reading, or say “Stop stop”"
-                            s.running && listening -> "Say “Take note” or “Question”"
+                            recording -> "Say ${q(w.stop)} when you're done"
+                            s.mode == Mode.SPEAKING || speaking -> "Tap Stop reading, or say ${q(w.stop)}"
+                            s.running && listening -> "Say ${q(w.note)} or ${q(w.question)}"
                             else -> "Turn on to use voice commands"
                         },
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -168,6 +171,11 @@ private fun StatusCard(s: ListenState, listening: Boolean, speaking: Boolean, a:
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else Switch(checked = listening, onCheckedChange = a.onToggleListen)
+            }
+            if (s.unknownWords.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text("The offline listener doesn't know ${s.unknownWords.joinToString { "“$it”" }} — change it in Settings → Voice commands",
+                    color = Tones.warn, style = MaterialTheme.typography.bodySmall)
             }
             if (s.error.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
@@ -222,7 +230,8 @@ private fun Elapsed(since: Long, now: () -> Long) {
 }
 
 @Composable
-private fun EmptyState(tab: Tab) {
+private fun EmptyState(tab: Tab, w: CommandWords) {
+    val q = CommandWords::quote
     Column(Modifier.fillMaxWidth().padding(vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
             when (tab) { Tab.NOTES -> Icons.AutoMirrored.Outlined.Notes; Tab.QUESTIONS -> Icons.Outlined.QuestionAnswer; Tab.ARCHIVE -> Icons.Outlined.Archive },
@@ -231,8 +240,8 @@ private fun EmptyState(tab: Tab) {
         Spacer(Modifier.height(10.dp))
         Text(
             when (tab) {
-                Tab.NOTES -> "No notes yet. Say “Take note”, talk, then “Stop stop”."
-                Tab.QUESTIONS -> "No questions yet. Say “Question”, ask, then “Stop stop”."
+                Tab.NOTES -> "No notes yet. Say ${q(w.note)}, talk, then ${q(w.stop)}."
+                Tab.QUESTIONS -> "No questions yet. Say ${q(w.question)}, ask, then ${q(w.stop)}."
                 Tab.ARCHIVE -> "Archived notes show up here."
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,

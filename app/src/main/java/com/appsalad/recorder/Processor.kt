@@ -50,7 +50,7 @@ class Processor(
             } catch (e: Exception) {
                 return fail(id, "Transcription: ${e.message}")
             }
-            val text = Commands.cleanTranscript(note.kind, raw)
+            val text = Commands.cleanTranscript(note.kind, raw, p.commands)
             if (text.isBlank()) return fail(id, "Nothing was heard in the recording")
             repo.update(id) { it.copy(text = text, updatedAt = System.currentTimeMillis()) }
             if (!p.keepAudio && note.kind == NoteKind.NOTE) dropAudio(id)

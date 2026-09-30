@@ -1,6 +1,7 @@
 package com.appsalad.recorder.data
 
 import android.content.Context
+import com.appsalad.recorder.audio.CommandWords
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +26,13 @@ data class Prefs(
     val systemPrompt: String = Settings.DEFAULT_SYSTEM,
     /** "system", "light" or "dark". */
     val theme: String = "system",
-)
+    /** Spoken commands, normalised (see [CommandWords.normalize]). */
+    val notePhrase: String = CommandWords.DEFAULT_NOTE,
+    val questionPhrase: String = CommandWords.DEFAULT_QUESTION,
+    val stopPhrase: String = CommandWords.DEFAULT_STOP,
+) {
+    val commands: CommandWords get() = CommandWords(notePhrase, questionPhrase, stopPhrase)
+}
 
 class Settings(context: Context) {
     private val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -50,6 +57,9 @@ class Settings(context: Context) {
         vibrate = sp.getBoolean("vibrate", true),
         systemPrompt = sp.getString("systemPrompt", DEFAULT_SYSTEM) ?: DEFAULT_SYSTEM,
         theme = sp.getString("theme", "system") ?: "system",
+        notePhrase = sp.getString("notePhrase", null) ?: CommandWords.DEFAULT_NOTE,
+        questionPhrase = sp.getString("questionPhrase", null) ?: CommandWords.DEFAULT_QUESTION,
+        stopPhrase = sp.getString("stopPhrase", null) ?: CommandWords.DEFAULT_STOP,
     )
 
     fun update(change: (Prefs) -> Prefs) {
@@ -67,6 +77,8 @@ class Settings(context: Context) {
             .putBoolean("vibrate", p.vibrate)
             .putString("systemPrompt", p.systemPrompt)
             .putString("theme", p.theme)
+            .apply { CommandWords.of(p.notePhrase, p.questionPhrase, p.stopPhrase).let {
+                putString("notePhrase", it.note); putString("questionPhrase", it.question); putString("stopPhrase", it.stop) } }
             .apply()
         _prefs.value = read()
     }

@@ -1,6 +1,7 @@
 package com.appsalad.recorder
 
 import com.appsalad.recorder.audio.Command
+import com.appsalad.recorder.audio.CommandWords
 import com.appsalad.recorder.audio.Commands
 import com.appsalad.recorder.data.NoteKind
 import org.junit.Assert.assertEquals
@@ -53,5 +54,43 @@ class CommandsTest {
         assertEquals("Remember to buy milk, eggs, and coffee beans on Saturday.", Commands.cleanTranscript(NoteKind.NOTE,
             "Take note: remember to buy milk, eggs, and coffee beans on Saturday. Stop. Stop."))
         assertEquals("Nothing to strip here", Commands.cleanTranscript(NoteKind.NOTE, "nothing to strip here"))
+    }
+
+    private val custom = CommandWords.of("Memo, please!", "Jarvis", "over and out")
+
+    @Test fun normalises() {
+        assertEquals(CommandWords("memo please", "jarvis", "over and out"), custom)
+        assertEquals(CommandWords(), CommandWords.of("  ", "", "!!"))
+        assertEquals("“Take note”", CommandWords.quote("take note"))
+    }
+
+    @Test fun customTriggers() {
+        assertEquals(Command.TAKE_NOTE, Commands.whileIdle("okay memo please", custom))
+        assertEquals(Command.QUESTION, Commands.whileIdle("jarvis what is the time", custom))
+        assertNull(Commands.whileIdle("i talked to jarvis", custom))    // single word: start of utterance only
+        assertNull(Commands.whileIdle("take note", custom))             // the defaults are off now
+        assertNull(Commands.whileIdle("question", custom))
+    }
+
+    @Test fun customStop() {
+        assertEquals(Command.STOP, Commands.whileRecording("that is all over and out", custom))
+        assertNull(Commands.whileRecording("stop stop", custom))
+        val oneWord = CommandWords.of("take note", "question", "done")
+        assertEquals(Command.STOP, Commands.whileRecording("done", oneWord))
+        assertNull(Commands.whileRecording("i am done with it", oneWord)) // single word: must be said on its own
+    }
+
+    @Test fun customGrammar() {
+        assertEquals("""["memo please", "jarvis", "over and out", "[unk]"]""", Commands.grammar(custom))
+        assertEquals("""["take note", "question", "stop stop", "take a note", "ask a question", "[unk]"]""", Commands.grammar())
+        assertEquals(Command.TAKE_NOTE, Commands.fromGrammar("[unk] memo please", custom))
+        assertEquals(Command.QUESTION, Commands.fromGrammar("jarvis", custom))
+        assertNull(Commands.fromGrammar("[unk] jarvis", custom))
+        assertNull(Commands.fromGrammar("take note", custom))
+    }
+
+    @Test fun customClean() {
+        assertEquals("Buy milk.", Commands.cleanTranscript(NoteKind.NOTE, "Memo, please. Buy milk. Over and out.", custom))
+        assertEquals("What time is it?", Commands.cleanTranscript(NoteKind.QUESTION, "Jarvis, what time is it? Over and out!", custom))
     }
 }

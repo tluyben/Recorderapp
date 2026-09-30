@@ -25,6 +25,7 @@ import com.appsalad.recorder.R
 import com.appsalad.recorder.RecorderApp
 import com.appsalad.recorder.audio.Chime
 import com.appsalad.recorder.audio.Command
+import com.appsalad.recorder.audio.CommandWords
 import com.appsalad.recorder.audio.Commands
 import com.appsalad.recorder.audio.Spotter
 import com.appsalad.recorder.audio.WavWriter
@@ -44,6 +45,8 @@ data class ListenState(
     /** What the offline recognizer last heard, so the user can see it working. */
     val heard: String = "",
     val error: String = "",
+    /** Words in the command phrases the offline model doesn't know (they can't be heard). */
+    val unknownWords: List<String> = emptyList(),
 )
 
 /**
@@ -158,6 +161,14 @@ class ListenService : Service() {
                         start(if (cmd == Command.TAKE_NOTE) NoteKind.NOTE else NoteKind.QUESTION)
                 }
 
+                val cw = app.settings.value.commands
+                if (cw != spotter.words) {
+                    spotter.words = cw
+                    val unknown = spotter.unknownWords(cw)
+                    set { it.copy(unknownWords = unknown) }
+                    getSystemService(NotificationManager::class.java).notify(NOTIF_ID, notification(_state.value))
+                }
+
                 val heard = spotter.feed(buf, n)
                 if (heard.text.isNotEmpty() && heard.text != lastHeard) {
                     lastHeard = heard.text
@@ -172,8 +183,8 @@ class ListenService : Service() {
                             // don't let the answer being read out trigger anything
                             spotter.reset(); set { it.copy(mode = Mode.SPEAKING) }
                         } else if (app.settings.value.listening) {
-                            val byGrammar = Commands.fromGrammar(spotter.feedCommands(buf, n))
-                            when (Commands.whileIdle(heard.text) ?: byGrammar) {
+                            val byGrammar = Commands.fromGrammar(spotter.feedCommands(buf, n), cw)
+                            when (Commands.whileIdle(heard.text, cw) ?: byGrammar) {
                                 Command.TAKE_NOTE -> start(NoteKind.NOTE)
                                 Command.QUESTION -> start(NoteKind.QUESTION)
                                 else -> {}
@@ -185,10 +196,10 @@ class ListenService : Service() {
                     Mode.NOTE, Mode.QUESTION -> {
                         writer?.write(buf, n)
                         val maxMs = app.settings.value.maxRecordMinutes * 60_000L
-                        if (Commands.whileRecording(heard.text) == Command.STOP || (writer?.durationMs ?: 0) >= maxMs) finish()
+                        if (Commands.whileRecording(heard.text, cw) == Command.STOP || (writer?.durationMs ?: 0) >= maxMs) finish()
                     }
                     Mode.SPEAKING -> {
-                        if (Commands.whileRecording(heard.text) == Command.STOP) { app.speaker.stop(); spotter.reset() }
+                        if (Commands.whileRecording(heard.text, cw) == Command.STOP) { app.speaker.stop(); spotter.reset() }
                         if (!app.speaker.speaking.value) { spotter.reset(); set { it.copy(mode = Mode.IDLE, heard = "") } }
                     }
                 }
@@ -234,6 +245,8 @@ class ListenService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
         val listening = app.settings.value.listening
+        val cw = app.settings.value.commands
+        val q = CommandWords::quote
         val b = NotificationCompat.Builder(this, RecorderApp.CH_LISTEN)
             .setSmallIcon(R.drawable.ic_mic_white)
             .setOngoing(true).setSilent(true).setContentIntent(open)
@@ -241,14 +254,14 @@ class ListenService : Service() {
         when (s.mode) {
             Mode.NOTE, Mode.QUESTION -> {
                 b.setContentTitle(if (s.mode == Mode.NOTE) "Recording a note" else "Listening to your question")
-                    .setContentText("Say “Stop stop” when you're done · stops by itself after ${app.settings.value.maxRecordMinutes} min")
+                    .setContentText("Say ${q(cw.stop)} when you're done · stops by itself after ${app.settings.value.maxRecordMinutes} min")
                     .setUsesChronometer(true).setWhen(s.recordingSince)
                     .addAction(0, "Stop", pi(ACTION_STOP_RECORDING, 3))
             }
-            Mode.SPEAKING -> b.setContentTitle("Reading the answer").setContentText("Say “Stop stop” to interrupt")
+            Mode.SPEAKING -> b.setContentTitle("Reading the answer").setContentText("Say ${q(cw.stop)} to interrupt")
                 .addAction(0, "Stop reading", pi(ACTION_SILENCE, 4))
             Mode.IDLE -> {
-                b.setContentTitle(if (s.loading) "Starting…" else if (listening) "Listening for “Take note” or “Question”" else "Recorder")
+                b.setContentTitle(if (s.loading) "Starting…" else if (listening) "Listening for ${q(cw.note)} or ${q(cw.question)}" else "Recorder")
                     .setContentText("Voice commands are recognised on the phone, offline")
                     .addAction(0, "Note", pi(ACTION_NOTE, 1))
                     .addAction(0, "Ask", pi(ACTION_QUESTION, 2))

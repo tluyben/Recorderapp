@@ -3,6 +3,7 @@ package com.appsalad.recorder
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import com.appsalad.recorder.audio.CommandWords
 import com.appsalad.recorder.data.Note
 import com.appsalad.recorder.data.NoteKind
 import com.appsalad.recorder.data.NoteStatus
@@ -103,6 +104,17 @@ class MobileShots : ScreenshotBase() {
         SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "light", maxRecordMinutes = 5, sounds = false), "",
             batteryExempt = true, version = "1.0.3", a = SettingsActions())
     }
+
+    @Test fun homeCustomWords() = shot("home-custom-words-$suffix") {
+        HomeScreen(ListenState(running = true, heard = "memo please", unknownWords = listOf("gpt")), listening = true, hasKey = true,
+            speaking = false, notes = notes, tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now },
+            words = CommandWords.of("memo please", "hey gpt", "over and out"))
+    }
+    @Config(qualifiers = "w390dp-h2400dp-xxhdpi")
+    @Test fun settingsVoiceCommands() = shot("settings-voice-commands-$suffix") {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark", notePhrase = "memo please", questionPhrase = "hey gpt",
+            stopPhrase = "over and out"), "", batteryExempt = true, version = "1.0.5", a = SettingsActions(), unknownWords = listOf("gpt"))
+    }
 }
 
 @Config(qualifiers = "w1280dp-h800dp-mdpi")
@@ -144,5 +156,19 @@ class DesktopShots : ScreenshotBase() {
     @Config(qualifiers = "w1280dp-h1400dp-mdpi")
     @Test fun settingsRecording() = shot("settings-recording-desktop") {
         SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark"), "", batteryExempt = false, version = "1.0.3", a = SettingsActions())
+    }
+    @Config(qualifiers = "w1280dp-h1500dp-mdpi")
+    @Test fun settingsVoiceCommands() = shot("settings-voice-commands-desktop") {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark", notePhrase = "memo please", questionPhrase = "hey gpt",
+            stopPhrase = "over and out"), "", batteryExempt = true, version = "1.0.5", a = SettingsActions(), unknownWords = listOf("gpt"))
+    }
+    @Config(qualifiers = "w1280dp-h1500dp-mdpi")
+    @Test fun settingsVoiceCommandsLight() = shot("light-settings-voice-commands-desktop", dark = false) {
+        SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "light"), "", batteryExempt = true, version = "1.0.5", a = SettingsActions())
+    }
+    @Test fun homeCustomWords() = shot("home-custom-words-desktop") {
+        HomeScreen(ListenState(running = true, heard = "memo please"), listening = true, hasKey = true,
+            speaking = false, notes = notes, tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now },
+            words = CommandWords.of("memo please", "jarvis", "over and out"))
     }
 }

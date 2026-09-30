@@ -1,12 +1,18 @@
 package com.appsalad.recorder.audio
 
 import android.content.Context
+import com.sun.jna.Library
+import com.sun.jna.Native
+import com.sun.jna.Pointer
 import org.json.JSONObject
 import org.vosk.LibVosk
 import org.vosk.LogLevel
 import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
+
+/** libvosk exports a vocabulary lookup that the Java wrapper doesn't expose. */
+interface VoskVocab : Library { fun vosk_model_find_word(model: Pointer, word: String): Int }
 
 /**
  * The always-on listener: a Vosk (Kaldi) small English model, run fully offline on the
@@ -16,7 +22,21 @@ class Spotter private constructor(private val model: Model, private val sampleRa
     private var rec = Recognizer(model, sampleRate)
     // a second decoder that only knows the command phrases: it snaps an accented or
     // mumbled "take note" onto the phrase, where the open-vocabulary one may hear "take no"
-    private var cmd = Recognizer(model, sampleRate, Commands.GRAMMAR)
+    private var cmd = Recognizer(model, sampleRate, Commands.grammar())
+
+    /** The phrases the command-only decoder listens for; changing them rebuilds its grammar. */
+    var words: CommandWords = CommandWords()
+        set(v) {
+            if (v == field) return
+            field = v
+            cmd.setGrammar(Commands.grammar(v))
+            cmd.reset()
+        }
+
+    /** Words of [cw] the model's vocabulary doesn't have — those can never be heard. */
+    fun unknownWords(cw: CommandWords): List<String> =
+        cw.words().filter { runCatching { vocab.vosk_model_find_word(model.pointer, it) < 0 }.getOrDefault(false) }
+    private val vocab: VoskVocab by lazy { Native.load("vosk", VoskVocab::class.java) }
 
     data class Heard(val text: String, val final: Boolean)
 
