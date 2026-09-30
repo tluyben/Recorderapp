@@ -29,8 +29,11 @@ class Spotter private constructor(private val model: Model, private val sampleRa
         set(v) {
             if (v == field) return
             field = v
-            cmd.setGrammar(Commands.grammar(v))
-            cmd.reset()
+            // a fresh decoder: Vosk's setGrammar() on a recognizer that has already heard
+            // audio is a fatal Kaldi error that aborts the whole app (1.0.5 crashed on Save)
+            val old = cmd
+            cmd = Recognizer(model, sampleRate, Commands.grammar(v))
+            old.close()
         }
 
     /** Words of [cw] the model's vocabulary doesn't have — those can never be heard. */
