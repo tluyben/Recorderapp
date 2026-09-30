@@ -31,6 +31,14 @@ class RecorderApp : Application() {
         }
     }
 
+    /** Retry every note that failed only because there was no usable AI key. */
+    fun retryMissingKey() {
+        repo.notes.value
+            .filter { it.status == com.appsalad.recorder.data.NoteStatus.FAILED &&
+                (it.error.startsWith(com.appsalad.recorder.data.Prefs.NO_KEY) || it.error.startsWith("No OpenRouter key")) }
+            .forEach { processor.process(it.id) }
+    }
+
     companion object {
         const val CH_LISTEN = "listen"
         const val CH_ALERT = "alert"

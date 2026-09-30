@@ -115,6 +115,26 @@ class MobileShots : ScreenshotBase() {
         SettingsScreen(Prefs(apiKey = "sk-or-v1-0123456789abcdef", theme = "dark", notePhrase = "memo please", questionPhrase = "hey gpt",
             stopPhrase = "over and out"), "", batteryExempt = true, version = "1.0.5", a = SettingsActions(), unknownWords = listOf("gpt"))
     }
+
+    @Config(qualifiers = "w390dp-h1500dp-xxhdpi")
+    @Test fun settingsInferMux() = shot("settings-infermux-signed-in-$suffix") {
+        SettingsScreen(Prefs(infermuxKey = "sk_mr_0123456789", infermuxEmail = "tycho@appsalad.com",
+            infermuxExpires = now + 30 * 86_400_000L, theme = "dark"), "", batteryExempt = true, version = "1.0.7",
+            a = SettingsActions(), infermuxCheck = "Key OK (Recorder (Android) (web login)) · balance $18.72")
+    }
+    @Config(qualifiers = "w390dp-h1500dp-xxhdpi")
+    @Test fun settingsInferMuxSignedOut() = shot("light-settings-infermux-signed-out-$suffix", dark = false) {
+        SettingsScreen(Prefs(theme = "light"), "", batteryExempt = true, version = "1.0.7", a = SettingsActions())
+    }
+    @Config(qualifiers = "w390dp-h3000dp-xxhdpi")
+    @Test fun settingsFull() = shot("settings-full-openrouter-last-$suffix") {
+        SettingsScreen(Prefs(provider = "openrouter", apiKey = "sk-or-v1-0123456789abcdef", theme = "dark"), "Key OK · used $0.42",
+            batteryExempt = true, version = "1.0.7", a = SettingsActions())
+    }
+    @Test fun homeSignInBanner() = shot("home-infermux-banner-$suffix") {
+        HomeScreen(ListenState(running = true), listening = true, hasKey = false, keyHint = "Sign in to InferMux",
+            speaking = false, notes = emptyList(), tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now })
+    }
 }
 
 @Config(qualifiers = "w1280dp-h800dp-mdpi")
@@ -170,5 +190,14 @@ class DesktopShots : ScreenshotBase() {
         HomeScreen(ListenState(running = true, heard = "memo please"), listening = true, hasKey = true,
             speaking = false, notes = notes, tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now },
             words = CommandWords.of("memo please", "jarvis", "over and out"))
+    }
+    @Test fun settingsInferMux() = shot("settings-infermux-signed-in-desktop") {
+        SettingsScreen(Prefs(infermuxKey = "sk_mr_0123456789", infermuxEmail = "tycho@appsalad.com",
+            infermuxExpires = now + 30 * 86_400_000L, theme = "dark"), "", batteryExempt = true, version = "1.0.7",
+            a = SettingsActions(), infermuxCheck = "Key OK (Recorder (Android) (web login)) · balance $18.72")
+    }
+    @Test fun homeSignInBanner() = shot("home-infermux-banner-desktop", dark = false) {
+        HomeScreen(ListenState(running = true), listening = true, hasKey = false, keyHint = "Sign in to InferMux",
+            speaking = false, notes = emptyList(), tab = Tab.NOTES, onTab = {}, actions = HomeActions(), now = { now })
     }
 }

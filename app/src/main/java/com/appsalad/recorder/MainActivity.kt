@@ -27,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import com.appsalad.recorder.audio.Chime
 import com.appsalad.recorder.data.Note
 import com.appsalad.recorder.data.NoteStatus
+import com.appsalad.recorder.net.InferMux
 import com.appsalad.recorder.net.OpenRouter
 import com.appsalad.recorder.service.ListenService
 import com.appsalad.recorder.service.Mode
@@ -68,6 +69,7 @@ class MainActivity : ComponentActivity() {
                 var screen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Home) }
                 var tab by rememberSaveable { mutableStateOf(Tab.NOTES) }
                 var keyCheck by remember { mutableStateOf("") }
+                var imxCheck by remember { mutableStateOf("") }
                 val prefs by app.settings.prefs.collectAsStateWithLifecycle()
                 val notes by app.repo.notes.collectAsStateWithLifecycle()
                 val listen by ListenService.state.collectAsStateWithLifecycle()
@@ -82,7 +84,12 @@ class MainActivity : ComponentActivity() {
 
                 when (val s = screen) {
                     Screen.Home -> HomeScreen(
-                        state = listen, listening = prefs.listening, hasKey = prefs.apiKey.isNotBlank(),
+                        state = listen, listening = prefs.listening, hasKey = prefs.aiClient() != null,
+                        keyHint = when {
+                            prefs.usesInferMux && prefs.infermuxExpired -> "Your InferMux key expired — sign in again"
+                            prefs.usesInferMux -> "Sign in to InferMux"
+                            else -> "Add your OpenRouter key"
+                        },
                         speaking = speaking, notes = notes, tab = tab, onTab = { tab = it },
                         maxRecordMinutes = prefs.maxRecordMinutes,
                         words = prefs.commands,
@@ -103,16 +110,15 @@ class MainActivity : ComponentActivity() {
                     }
                     Screen.Prefs -> SettingsScreen(
                         prefs = prefs, keyCheck = keyCheck, batteryExempt = batteryExempt, unknownWords = listen.unknownWords,
+                        infermuxCheck = imxCheck,
                         version = "${BuildConfigCompat.versionName(this)}",
                         a = SettingsActions(
                             onBack = { screen = Screen.Home },
                             onSave = { p ->
-                                app.settings.update { cur -> p.copy(listening = cur.listening, theme = cur.theme) }
+                                app.settings.update { cur -> p.copy(listening = cur.listening, theme = cur.theme, provider = cur.provider) }
                                 Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
                                 // retry anything that failed for lack of a key
-                                if (p.apiKey.isNotBlank()) app.repo.notes.value
-                                    .filter { it.status == NoteStatus.FAILED && it.error.startsWith("No OpenRouter key") }
-                                    .forEach { app.processor.process(it.id) }
+                                if (app.settings.value.aiClient() != null) app.retryMissingKey()
                             },
                             onTestKey = { k ->
                                 keyCheck = "Checking…"
@@ -125,6 +131,22 @@ class MainActivity : ComponentActivity() {
                                 lifecycleScope.launch { Chime.play(true); kotlinx.coroutines.delay(900); Chime.play(false) }
                             },
                             onTheme = { m -> app.settings.update { it.copy(theme = m.name.lowercase()) } },
+                            onProvider = { id ->
+                                app.settings.update { it.copy(provider = id) }
+                                if (app.settings.value.aiClient() != null) app.retryMissingKey()
+                            },
+                            onSignInInferMux = { startActivity(Intent(this, KeyLoginActivity::class.java)) },
+                            onSignOutInferMux = {
+                                app.settings.update { it.copy(infermuxKey = "", infermuxExpires = 0, infermuxEmail = "") }
+                                imxCheck = ""
+                                Toast.makeText(this, "Signed out — the key is removed from this phone", Toast.LENGTH_LONG).show()
+                            },
+                            onTestInferMux = { k ->
+                                imxCheck = "Checking…"
+                                lifecycleScope.launch {
+                                    imxCheck = runCatching { InferMux.checkKey(k.trim()) }.getOrElse { "Failed: ${it.message}" }
+                                }
+                            },
                         ),
                     )
                 }

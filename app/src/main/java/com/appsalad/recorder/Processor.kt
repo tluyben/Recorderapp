@@ -5,7 +5,6 @@ import com.appsalad.recorder.data.NoteKind
 import com.appsalad.recorder.data.NoteStatus
 import com.appsalad.recorder.data.NotesRepo
 import com.appsalad.recorder.data.Settings
-import com.appsalad.recorder.net.OpenRouter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -13,8 +12,8 @@ import kotlinx.coroutines.sync.withPermit
 import java.io.File
 
 /**
- * Turns a finished recording into text (OpenRouter STT) and, for a question, into a
- * spoken answer (OpenRouter chat + TTS). Runs in the app scope, not the service, so it
+ * Turns a finished recording into text (speech-to-text via InferMux or OpenRouter) and,
+ * for a question, into a spoken answer (chat on the same service + TTS). Runs in the app scope, not the service, so it
  * also works for Retry while listening is off.
  */
 class Processor(
@@ -39,16 +38,16 @@ class Processor(
     private suspend fun run(id: String) {
         val note = repo.get(id) ?: return
         val p = settings.value
-        if (p.apiKey.isBlank()) return fail(id, "No OpenRouter key — set it in Settings, then Retry")
+        val ai = p.aiClient() ?: return fail(id, p.missingKeyMessage)
         // a question that already has text (typed, or transcribed before) goes straight to the AI
         if (note.text.isBlank()) {
             val audio = File(note.audioPath)
             if (note.audioPath.isEmpty() || !audio.exists()) return fail(id, "The recording is gone")
             val raw = try {
-                OpenRouter.transcribe(p.apiKey, p.sttModel, audio, p.language,
-                    prompt = if (note.kind == NoteKind.NOTE) "A voice note." else "A question for an AI assistant.")
+                ai.transcribe(audio, p.language,
+                    hint = if (note.kind == NoteKind.NOTE) "A voice note." else "A question for an AI assistant.")
             } catch (e: Exception) {
-                return fail(id, "Transcription: ${e.message}")
+                return fail(id, "Transcription (${ai.name}): ${e.message}")
             }
             val text = Commands.cleanTranscript(note.kind, raw, p.commands)
             if (text.isBlank()) return fail(id, "Nothing was heard in the recording")
@@ -66,11 +65,11 @@ class Processor(
     private suspend fun answer(id: String) {
         val note = repo.get(id) ?: return
         val p = settings.value
-        if (p.apiKey.isBlank()) return fail(id, "No OpenRouter key — set it in Settings, then Retry")
+        val ai = p.aiClient() ?: return fail(id, p.missingKeyMessage)
         val a = try {
-            OpenRouter.chat(p.apiKey, p.chatModel, p.systemPrompt, note.text)
+            ai.chat(p.systemPrompt, note.text)
         } catch (e: Exception) {
-            return fail(id, "AI: ${e.message}")
+            return fail(id, "AI (${ai.name}): ${e.message}")
         }
         repo.update(id) { it.copy(answer = a, status = NoteStatus.READY, updatedAt = System.currentTimeMillis()) }
         if (!p.keepAudio) dropAudio(id)

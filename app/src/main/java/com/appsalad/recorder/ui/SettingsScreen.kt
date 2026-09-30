@@ -37,14 +37,28 @@ class SettingsActions(
     /** Applied at once, without Save. */
     val onTheme: (ThemeMode) -> Unit = {},
     val onTestSound: () -> Unit = {},
+    /** Applied at once, without Save. */
+    val onProvider: (String) -> Unit = {},
+    val onSignInInferMux: () -> Unit = {},
+    val onSignOutInferMux: () -> Unit = {},
+    val onTestInferMux: (String) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, version: String, a: SettingsActions, unknownWords: List<String> = emptyList()) {
-    // edits stay local until Save; the theme and the listening switch apply at once elsewhere
+fun SettingsScreen(
+    prefs: Prefs, keyCheck: String, batteryExempt: Boolean, version: String, a: SettingsActions,
+    unknownWords: List<String> = emptyList(), infermuxCheck: String = "",
+) {
+    // edits stay local until Save; the theme, provider, listening switch and InferMux
+    // sign-in apply at once, so they're taken over from [prefs] whenever they change
     var p by remember { mutableStateOf(prefs) }
+    LaunchedEffect(prefs.provider, prefs.infermuxKey, prefs.infermuxExpires, prefs.infermuxEmail) {
+        p = p.copy(provider = prefs.provider, infermuxKey = prefs.infermuxKey,
+            infermuxExpires = prefs.infermuxExpires, infermuxEmail = prefs.infermuxEmail)
+    }
     var showKey by remember { mutableStateOf(false) }
+    var showImxKey by remember { mutableStateOf(false) }
     val dirty = p.copy(listening = prefs.listening, theme = prefs.theme) != prefs
     Scaffold(
         topBar = {
@@ -79,26 +93,39 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
                 }
             }
 
-            Section("OpenRouter")
+            Section("AI service")
+            Text("Transcribes your recordings and answers your questions.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val providers = listOf("infermux" to "InferMux", "openrouter" to "OpenRouter")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                providers.forEachIndexed { i, (id, label) ->
+                    val selected = if (id == "openrouter") !prefs.usesInferMux else prefs.usesInferMux
+                    SegmentedButton(selected = selected, onClick = { a.onProvider(id) },
+                        shape = SegmentedButtonDefaults.itemShape(i, providers.size)) { Text(label) }
+                }
+            }
+
+            Section("InferMux")
+            InferMuxAccount(prefs, a)
             OutlinedTextField(
-                value = p.apiKey, onValueChange = { p = p.copy(apiKey = it) },
-                label = { Text("API key") }, placeholder = { Text("sk-or-v1-…") }, singleLine = true,
-                visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                value = p.infermuxKey, onValueChange = { p = p.copy(infermuxKey = it, infermuxExpires = 0, infermuxEmail = "") },
+                label = { Text("…or paste an InferMux key") }, placeholder = { Text("sk_…") }, singleLine = true,
+                visualTransformation = if (showImxKey) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = { IconButton(onClick = { showKey = !showKey }) {
-                    Icon(if (showKey) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Show key") } },
+                trailingIcon = { IconButton(onClick = { showImxKey = !showImxKey }) {
+                    Icon(if (showImxKey) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Show key") } },
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { a.onTestKey(p.apiKey) }, enabled = p.apiKey.isNotBlank()) { Text("Test key") }
+                OutlinedButton(onClick = { a.onTestInferMux(p.infermuxKey) }, enabled = p.infermuxKey.isNotBlank()) { Text("Test key") }
                 Spacer(Modifier.width(12.dp))
-                Text(keyCheck, style = MaterialTheme.typography.bodySmall,
-                    color = if (keyCheck.startsWith("Key OK")) Tones.listening else MaterialTheme.colorScheme.primary)
+                Text(infermuxCheck, style = MaterialTheme.typography.bodySmall,
+                    color = if (infermuxCheck.startsWith("Key OK")) Tones.listening else MaterialTheme.colorScheme.primary)
             }
-            Text("Get a key at openrouter.ai/keys. It is stored only on this phone.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            ModelField("Speech-to-text model", p.sttModel, Settings.STT_SUGGESTIONS) { p = p.copy(sttModel = it) }
-            ModelField("AI model for questions", p.chatModel, Settings.CHAT_SUGGESTIONS) { p = p.copy(chatModel = it) }
+            ModelField("Transcription model (must take audio)", p.infermuxSttModel, Settings.IMX_STT_SUGGESTIONS) { p = p.copy(infermuxSttModel = it) }
+            ModelField("AI model for questions", p.infermuxChatModel, Settings.CHAT_SUGGESTIONS.filter { it != "openrouter/auto" }) { p = p.copy(infermuxChatModel = it) }
+
+            Section("Answers")
             OutlinedTextField(
                 value = p.language, onValueChange = { p = p.copy(language = it.take(5)) },
                 label = { Text("Language (e.g. en, nl — empty = auto)") }, singleLine = true,
@@ -162,6 +189,29 @@ fun SettingsScreen(prefs: Prefs, keyCheck: String, batteryExempt: Boolean, versi
             OutlinedButton(onClick = a.onBattery, enabled = !batteryExempt) {
                 Text(if (batteryExempt) "Battery optimisation is off ✓" else "Allow running in the background")
             }
+
+            Section("OpenRouter")
+            Text("Only used when OpenRouter is the AI service above.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(
+                value = p.apiKey, onValueChange = { p = p.copy(apiKey = it) },
+                label = { Text("API key") }, placeholder = { Text("sk-or-v1-…") }, singleLine = true,
+                visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = { IconButton(onClick = { showKey = !showKey }) {
+                    Icon(if (showKey) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Show key") } },
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { a.onTestKey(p.apiKey) }, enabled = p.apiKey.isNotBlank()) { Text("Test key") }
+                Spacer(Modifier.width(12.dp))
+                Text(keyCheck, style = MaterialTheme.typography.bodySmall,
+                    color = if (keyCheck.startsWith("Key OK")) Tones.listening else MaterialTheme.colorScheme.primary)
+            }
+            Text("Get a key at openrouter.ai/keys. It is stored only on this phone.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ModelField("Speech-to-text model", p.sttModel, Settings.STT_SUGGESTIONS) { p = p.copy(sttModel = it) }
+            ModelField("AI model for questions", p.chatModel, Settings.CHAT_SUGGESTIONS) { p = p.copy(chatModel = it) }
             Spacer(Modifier.height(8.dp))
             Text("Recorder $version", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             Spacer(Modifier.height(24.dp))
@@ -214,4 +264,38 @@ private fun PhraseField(label: String, value: String, default: String, on: (Stri
         supportingText = if (CommandWords.normalize(value).isEmpty()) {{ Text("Empty uses the default, “$default”") }} else null,
         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
     )
+}
+
+@Composable
+private fun InferMuxAccount(prefs: Prefs, a: SettingsActions) {
+    val fmt = remember { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault()) }
+    val signedIn = prefs.infermuxKey.isNotBlank()
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                when {
+                    !signedIn -> "Not signed in"
+                    prefs.infermuxExpired -> "Key expired" + if (prefs.infermuxEmail.isNotBlank()) " (${prefs.infermuxEmail})" else ""
+                    prefs.infermuxEmail.isNotBlank() -> "Signed in as ${prefs.infermuxEmail}"
+                    else -> "Using a pasted key"
+                },
+                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                color = if (signedIn && prefs.infermuxExpired) Tones.warn else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                when {
+                    signedIn && prefs.infermuxExpires > 0 && !prefs.infermuxExpired ->
+                        "This app's key works until ${fmt.format(java.util.Date(prefs.infermuxExpires))}. Usage is charged to your InferMux credits."
+                    signedIn && prefs.infermuxExpired -> "Sign in again to get a new key."
+                    signedIn -> "Usage is charged to the key's InferMux account."
+                    else -> "Sign in with AuthLock to get a key for this app in a few seconds — nothing to copy."
+                },
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = a.onSignInInferMux) { Text(if (signedIn) "Sign in again" else "Sign in with AuthLock") }
+                if (signedIn) OutlinedButton(onClick = a.onSignOutInferMux) { Text("Sign out") }
+            }
+        }
+    }
 }

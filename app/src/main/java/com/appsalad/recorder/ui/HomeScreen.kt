@@ -55,6 +55,7 @@ fun HomeScreen(
     state: ListenState,
     listening: Boolean,
     hasKey: Boolean,
+    keyHint: String = "Sign in to InferMux",
     speaking: Boolean,
     notes: List<Note>,
     tab: Tab,
@@ -87,7 +88,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (!hasKey) item { KeyBanner(actions.onSettings) }
+            if (!hasKey) item { KeyBanner(keyHint, actions.onSettings) }
             item { StatusCard(state, listening, speaking, actions, now, maxRecordMinutes, words) }
             item {
                 val counts = Tab.entries.associateWith { t ->
@@ -111,7 +112,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun KeyBanner(onSettings: () -> Unit) {
+private fun KeyBanner(title: String, onSettings: () -> Unit) {
     Surface(
         color = Tones.bannerBg, shape = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onSettings),
@@ -120,8 +121,8 @@ private fun KeyBanner(onSettings: () -> Unit) {
             Icon(Icons.Outlined.Key, null, tint = Tones.warn)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Add your OpenRouter key", fontWeight = FontWeight.SemiBold, color = Tones.bannerTitle)
-                Text("Needed to transcribe notes and answer questions. Recording works without it.",
+                Text(title, fontWeight = FontWeight.SemiBold, color = Tones.bannerTitle)
+                Text("An AI service transcribes notes and answers questions — InferMux or OpenRouter, in Settings. Recording works without it.",
                     style = MaterialTheme.typography.bodySmall, color = Tones.bannerText)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = Tones.bannerTitle)
